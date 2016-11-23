@@ -47,7 +47,7 @@ using namespace std;
 
 // Perform t-SNE
 void TSNE::run(double* X, int N, int D, double* Y, int no_dims, double perplexity, double theta, int rand_seed,
-               bool skip_random_init, int max_iter, int stop_lying_iter, int mom_switch_iter) {
+               bool skip_random_init, double* positions, int max_iter, int stop_lying_iter, int mom_switch_iter) {
 
     // Set random seed
     if (skip_random_init != true) {
@@ -136,7 +136,7 @@ void TSNE::run(double* X, int N, int D, double* Y, int no_dims, double perplexit
 
 	// Initialize solution (randomly)
   if (skip_random_init != true) {
-  	for(int i = 0; i < N * no_dims; i++) Y[i] = randn() * .0001;
+  	for(int i = 0; i < N * no_dims; i++) Y[i] = randn() * .0001; //Y has shape [n_samples*n_projected_dims] e.g. (100*2)
   }
 
 	// Perform main training loop
@@ -145,6 +145,8 @@ void TSNE::run(double* X, int N, int D, double* Y, int no_dims, double perplexit
     start = clock();
 
 	for(int iter = 0; iter < max_iter; iter++) {
+        //Brute force approach to append the positions for each iteration
+        for(int i = 0 ; i < N * no_dims; i++)  positions[i+iter*N*no_dims] = Y[i];
 
         // Compute (approximate) gradient
         if(exact) computeExactGradient(P, Y, N, no_dims, dY);
@@ -688,8 +690,9 @@ bool TSNE::load_data(double** data, int* n, int* d, int* no_dims, double* theta,
 }
 
 // Function that saves map to a t-SNE file
-void TSNE::save_data(double* data, int* landmarks, double* costs, int n, int d) {
-
+void TSNE::save_data(double* data, int* landmarks, double* costs, int n, int d, double* positions, int max_iter) {
+    //n -> number of samples
+    //d -> number of projected dimensions
 	// Open file, write first 2 integers and then the data
 	FILE *h;
 	if((h = fopen("result.dat", "w+b")) == NULL) {
@@ -698,8 +701,10 @@ void TSNE::save_data(double* data, int* landmarks, double* costs, int n, int d) 
 	}
 	fwrite(&n, sizeof(int), 1, h);
 	fwrite(&d, sizeof(int), 1, h);
+    fwrite(&max_iter, sizeof(int), 1, h);
     fwrite(data, sizeof(double), n * d, h);
 	fwrite(landmarks, sizeof(int), n, h);
+    fwrite(positions, sizeof(double), max_iter*n*d, h);
     fwrite(costs, sizeof(double), n, h);
     fclose(h);
 	printf("Wrote the %i x %i data matrix successfully!\n", n, d);
@@ -720,25 +725,30 @@ int main() {
 	if(tsne->load_data(&data, &origN, &D, &no_dims, &theta, &perplexity, &rand_seed, &max_iter)) {
 
 		// Make dummy landmarks
-        N = origN;
+        N = origN; //Number of samples
         int* landmarks = (int*) malloc(N * sizeof(int));
         if(landmarks == NULL) { printf("Memory allocation failed!\n"); exit(1); }
         for(int n = 0; n < N; n++) landmarks[n] = n;
 
 		// Now fire up the SNE implementation
-		double* Y = (double*) malloc(N * no_dims * sizeof(double));
+		double* Y = (double*) malloc(N * no_dims * sizeof(double)); //Initialise Y
 		double* costs = (double*) calloc(N, sizeof(double));
-        if(Y == NULL || costs == NULL) { printf("Memory allocation failed!\n"); exit(1); }
-		tsne->run(data, N, D, Y, no_dims, perplexity, theta, rand_seed, false, max_iter);
+        //if(Y == NULL || costs == NULL) { printf("Memory allocation failed!\n"); exit(1); }
+        //Create the positions array
+        double* positions = (double*) malloc(max_iter*N*no_dims*sizeof(double)); //The shape is a flattened array [n_iter*n_samples*n_projection_dims]
+        //Check that the memory was successfully allocated
+        if(Y == NULL || costs == NULL || positions == NULL) { printf("Memory allocation failed!\n"); exit(1); }
+		tsne->run(data, N, D, Y, no_dims, perplexity, theta, rand_seed, false, positions, max_iter);
 
 		// Save the results
-		tsne->save_data(Y, landmarks, costs, N, no_dims);
+		tsne->save_data(Y, landmarks, costs, N, no_dims, positions, max_iter);
 
         // Clean up the memory
 		free(data); data = NULL;
 		free(Y); Y = NULL;
 		free(costs); costs = NULL;
 		free(landmarks); landmarks = NULL;
+        free(positions); positions = NULL;
     }
     delete(tsne);
 }

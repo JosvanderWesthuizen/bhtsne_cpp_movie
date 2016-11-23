@@ -149,6 +149,9 @@ def load_data(input_file):
 
 def bh_tsne(workdir, verbose=False):
 
+    #Define global positions because it is returned in another function
+    global positions
+
     # Call bh_tsne and let it do its thing
     with open(devnull, 'w') as dev_null:
         bh_tsne_p = Popen((abspath(BH_TSNE_BIN_PATH), ), cwd=workdir,
@@ -165,7 +168,7 @@ def bh_tsne(workdir, verbose=False):
     with open(path_join(workdir, 'result.dat'), 'rb') as output_file:
         # The first two integers are just the number of samples and the
         #   dimensionality
-        result_samples, result_dims = _read_unpack('ii', output_file)
+        result_samples, result_dims, max_iter = _read_unpack('iii', output_file)
         # Collect the results, but they may be out of order
         results = [_read_unpack('{}d'.format(result_dims), output_file)
             for _ in range(result_samples)]
@@ -176,6 +179,10 @@ def bh_tsne(workdir, verbose=False):
         results.sort()
         for _, result in results:
             yield result
+
+        #Read the position data over all the iterations
+        positions = [_read_unpack('{}d'.format(result_samples*result_dims), output_file) for _ in range(max_iter)]
+        
         # The last piece of data is the cost for each sample, we ignore it
         #read_unpack('{}d'.format(sample_count), output_file)
 
@@ -196,6 +203,8 @@ def run_bh_tsne(data, no_dims=2, perplexity=50, theta=0.5, randseed=-1, verbose=
     use_pca: boolean
     max_iter: int
     '''
+    #Define global positions. The values are assigned during the 'bhtsne' function call.
+    global positions
 
     # bh_tsne works with fixed input and output paths, give it a temporary
     #   directory to work in so we don't clutter the filesystem
@@ -217,7 +226,7 @@ def run_bh_tsne(data, no_dims=2, perplexity=50, theta=0.5, randseed=-1, verbose=
                 sample_res.append(r)
             res.append(sample_res)
         rmtree(tmp_dir_path)
-        return np.asarray(res, dtype='float64')
+        return np.asarray(res, dtype='float64'), np.asarray(positions, dtype='float64')
 
 
 def main(args):
