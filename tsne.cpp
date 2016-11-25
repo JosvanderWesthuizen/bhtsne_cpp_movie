@@ -31,7 +31,6 @@
  */
 
 
-
 #include <math.h>
 #include <float.h>
 #include <stdlib.h>
@@ -440,7 +439,7 @@ void TSNE::computeGaussianPerplexity(double* X, int N, int D, unsigned int** _ro
     tree->create(obj_X);
 
     // Loop over all points to find nearest neighbors
-    printf("Building tree...\n");
+	printf("Building tree...\n");
     vector<DataPoint> indices;
     vector<double> distances;
     for(int n = 0; n < N; n++) {

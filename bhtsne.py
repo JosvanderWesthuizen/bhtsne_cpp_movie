@@ -208,7 +208,7 @@ def run_bh_tsne(data, no_dims=2, perplexity=50, theta=0.5, randseed=-1, verbose=
 
     # bh_tsne works with fixed input and output paths, give it a temporary
     #   directory to work in so we don't clutter the filesystem
-    tmp_dir_path = mkdtemp()
+    tmp_dir_path = mkdtemp(dir=os.path.join(os.getcwd(),'tmp')) #Make the temporary directory in the current folder to allow a larger temporary capacity.
 
     # Load data in forked process to free memory for actual bh_tsne calculation
     child_pid = os.fork()
