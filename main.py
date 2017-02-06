@@ -37,7 +37,7 @@ y = np.hstack([digits.target[digits.target==i]
 #Set the perplexity
 perplexity = 50
 #Set the max iterations
-max_iter = 200
+max_iter = 2000
 
 def scatter(x, colors):
     # We choose a color palette with seaborn.
